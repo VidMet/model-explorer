@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metadata Utforsker v1.0</title>
+    <title>Metadata Utforsker v1.01</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -120,7 +120,10 @@
                 </tr>
             </thead>
             <tbody id="tableBody">
-                </tbody>
+                <tr>
+                    <td colspan="9" class="loading" id="loaderText">Data lastes inn. Se status øverst til høyre.</td>
+                </tr>
+            </tbody>
         </table>
     </div>
 
@@ -179,8 +182,24 @@
 
         async function fetchProjectFiles(projectId) {
             try {
-                // Bruker app21 for europeiske prosjekter
-                const url = `https://app21.connect.trimble.com/tc/v1/projects/${projectId}/items`;
+                setStatus("Søker opp riktig API-region for prosjektet...", "warn");
+
+                // 1. Spør Trimble om hvilke server-URLer som gjelder akkurat nå
+                const regionRes = await fetch("https://api.connect.trimble.com/tc/v1/regions", {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                
+                if (!regionRes.ok) throw new Error("Kunne ikke slå opp regioner");
+                const regions = await regionRes.json();
+                
+                // 2. Sammenlign med prosjektets region (f.eks "europe") for å få riktig baseUrl
+                const myRegion = regions.find(r => r.id === currentProject.region);
+                const baseUrl = myRegion ? myRegion.origin : "https://api.connect.trimble.com";
+
+                setStatus(`Kobler til server: ${myRegion ? myRegion.name : baseUrl}...`, "warn");
+
+                // 3. Nå er vi 100% sikre på at vi treffer riktig server
+                const url = `${baseUrl}/tc/v1/projects/${projectId}/items`;
                 
                 const response = await fetch(url, {
                     method: 'GET',
@@ -190,7 +209,7 @@
                     }
                 });
                 
-                if (!response.ok) throw new Error("API feilet");
+                if (!response.ok) throw new Error("API feilet med status: " + response.status);
 
                 const files = await response.json();
                 const modelFiles = files.filter(file => file.type === 'FILE' && file.name.toLowerCase().endsWith('.ifc'));
@@ -204,7 +223,7 @@
                 setStatus(`Henter metadata for ${modelFiles.length} filer...`, "warn");
 
                 allFilesData = await Promise.all(modelFiles.map(async (file) => {
-                    const metadata = await fetchFileMetadata(projectId, file.id);
+                    const metadata = await fetchFileMetadata(projectId, file.id, baseUrl);
                     return {
                         id: file.id,
                         name: file.name,
@@ -218,18 +237,21 @@
                 
             } catch (error) {
                 console.error("Filhenting feilet:", error);
+                document.getElementById('loaderText').innerText = "Nettverksfeil. Se konsoll (F12) for detaljer.";
                 setStatus("Nettverksfeil mot filstrukturen", "error");
             }
         }
 
-        async function fetchFileMetadata(projectId, fileId) {
+        // Legg merke til at vi nå sender 'baseUrl' videre inn hit også
+        async function fetchFileMetadata(projectId, fileId, baseUrl) {
             const defaultMeta = {
                 fag: "-", mmi: "-", revisjon: "-", revisjonsdato: "-", 
                 gjelder: "-", utarbeidet: "-", kontrollert: "-", godkjent: "-"
             };
             
             try {
-                const url = `https://app21.connect.trimble.com/tc/v1/projects/${projectId}/items/${fileId}/properties`;
+                // Bruker den dynamiske serveradressen
+                const url = `${baseUrl}/tc/v1/projects/${projectId}/items/${fileId}/properties`;
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${accessToken}` }
