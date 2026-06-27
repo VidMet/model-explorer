@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Utforsker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .search-bar {
+            padding: 8px 12px;
+            width: 300px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 13px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background-color: #f1f3f5;
+            color: #495057;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover {
+            background-color: #e9ecef;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-style: italic;
+            color: #6c757d;
+        }
+    </style>
+    <script src="https://global.connect.trimble.com/tc/static/apidoc/workspace/v1/trimble-connect-workspace-api.js"></script>
+</head>
+<body>
+
+    <div class="header-actions">
+        <h2>Prosjektmodeller og Metadata</h2>
+        <input type="text" id="searchInput" class="search-bar" placeholder="Søk i modeller eller metadata...">
+    </div>
+
+    <table id="metadataTable">
+        <thead>
+            <tr>
+                <th>Filnavn</th>
+                <th>Fag</th>
+                <th>MMI</th>
+                <th>Revisjon</th>
+                <th>Revisjonsdato</th>
+                <th>Revisjonen gjelder</th>
+                <th>Utarbeidet av</th>
+                <th>Kontrollert av</th>
+                <th>Godkjent av</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr>
+                <td colspan="9" class="loading">Initialiserer og henter data fra Trimble Connect...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script src="app.js"></script>
+</body>
+</html>
