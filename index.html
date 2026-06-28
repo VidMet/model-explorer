@@ -282,44 +282,93 @@
         }
 
         async function fetchFileMetadata(fileId, fileName, baseUrl) {
-                    const defaultMeta = { fag: "-", mmi: "-", revisjon: "-", revisjonsdato: "-", gjelder: "-" };
-                    try {
-                        const url = `${baseUrl}/tc/api/2.0/files/${fileId}`;
-                        const response = await fetch(url, {
-                            method: 'GET',
-                            headers: { 'Authorization': `Bearer ${accessToken}` }
-                        });
-                        if (!response.ok) return defaultMeta;
-                        const fileData = await response.json();
-                        
-                        // Denne henter alt Trimble Connect har mappet som Custom Properties
-                        const props = fileData.customProperties || {};
-                        
-                        console.log(`Metadata for ${fileName}:`, props);
-                        
-                        return {
-                            fag: props["Fag"] || "-",
-                            mmi: props["MMI"] || "-",
-                            revisjon: props["Revisjon"] || "-",
-                            revisjonsdato: props["Revisjonsdato"] || "-",
-                            gjelder: props["Beskrivelse"] || props["Gjelder"] || "-"
-                        };
-                    } catch (e) { return defaultMeta; }
+
+            const defaultMeta = {
+                fag: "-",
+                mmi: "-",
+                revisjon: "-",
+                revisjonsdato: "-",
+                gjelder: "-"
+            };
+
+            try {
+
+                // 1️⃣ Hent filinfo (for å få modelId)
+                const fileRes = await fetch(`${baseUrl}/tc/api/2.0/files/${fileId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!fileRes.ok) {
+                    console.warn("Fil-feil:", fileName);
+                    return defaultMeta;
                 }
 
-        function extractProp(data, possibleKeys) {
-            let value = "-";
-            possibleKeys.forEach(key => {
-                if (data[key]) value = data[key];
-                if (Array.isArray(data)) {
-                    data.forEach(propSet => {
-                        if (propSet.properties && propSet.properties[key]) {
-                            value = propSet.properties[key];
-                        }
-                    });
+                const fileData = await fileRes.json();
+
+                const modelId = fileData.modelId || fileData.id;
+
+                if (!modelId) {
+                    console.warn("Fant ikke modelId:", fileName);
+                    return defaultMeta;
                 }
-            });
-            return value;
+
+                // 2️⃣ Hent IFC properties (DETTE ER NYTT)
+                const propRes = await fetch(`${baseUrl}/tc/api/2.0/models/${modelId}/properties`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!propRes.ok) {
+                    console.warn("Ingen properties:", fileName);
+                    return defaultMeta;
+                }
+
+                const propData = await propRes.json();
+
+                console.log(`IFC metadata for ${fileName}:`, propData);
+
+                // 3️⃣ Ekstraher verdier (bruk din eksisterende helper)
+                return {
+                    fag: extractProp(propData, ["Fag"]),
+                    mmi: extractProp(propData, ["MMI"]),
+                    revisjon: extractProp(propData, ["Revisjon"]),
+                    revisjonsdato: extractProp(propData, ["Revisjonsdato"]),
+                    gjelder: extractProp(propData, ["Beskrivelse", "Gjelder"])
+                };
+
+            } catch (e) {
+                console.warn("Metadata-feil:", fileName, e);
+                return defaultMeta;
+            }
+        }
+
+        function extractProp(data, keys) {
+            if (!data) return "-";
+
+            // direkte treff
+            for (const key of keys) {
+                if (data[key]) return data[key];
+            }
+
+            // array av propertysets (vanlig IFC)
+            if (Array.isArray(data)) {
+                for (const set of data) {
+                    if (!set.properties) continue;
+
+                    for (const key of keys) {
+                        if (set.properties[key]) return set.properties[key];
+                    }
+                }
+            }
+
+            return "-";
         }
 
         function renderTable(data) {
