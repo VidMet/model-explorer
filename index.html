@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.13</title>
+    <title>DocLib v1.14</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -81,7 +81,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.13</b>
+            <b>DocLib v1.14</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -144,6 +144,24 @@
                 setStatus("Kobler til Trimble Connect...", "warn");
                 API = await window.TrimbleConnectWorkspace.connect(window.parent);
 
+                // --- FIKS FOR MENYKNAPP: Legger koden tilbake, men fanger opp evt. feil i det stille ---
+                if (API.ui && API.ui.setMenu) {
+                    API.ui.setMenu({
+                        title: "DocLib",
+                        command: "open_explorer",
+                        icon: "https://vidmet.github.io/DocLib/paper.png"
+                    }).catch(e => console.warn("Meny-oppsett ignorert (kjent timeout):", e));
+                }
+
+                if (API.ui && API.ui.onCommand) {
+                    API.ui.onCommand((command) => {
+                        if (command === "open_explorer") {
+                            API.ui.setActiveMenuItem("open_explorer").catch(e => console.warn(e));
+                        }
+                    });
+                }
+                // -----------------------------------------------------------------------------------------
+
                 setStatus("Henter prosjekt og tillatelser...", "warn");
                 currentProject = await API.project.getProject();
                 
@@ -171,7 +189,6 @@
 
         window.onload = initExtension;
 
-        // Funksjon som tråler prosjektet og lagrer mappenavnet for hver fil
         async function hentAlleIfc(folderId, folderName, baseUrl) {
             let funnet = [];
             try {
@@ -189,7 +206,7 @@
                 const undermapper = [];
                 for (const item of items) {
                     if (item.type === 'FILE' && item.name.toLowerCase().endsWith('.ifc')) {
-                        item.folderName = folderName; // Lagrer mappenavnet på filobjektet
+                        item.folderName = folderName; 
                         funnet.push(item);
                     } else if (item.type === 'FOLDER') {
                         undermapper.push(item);
@@ -229,7 +246,6 @@
 
                 setStatus(`Skanner hele prosjektet for IFC-filer...`, "warn");
                 
-                // Starter søket i rotmappen
                 const modelFiles = await hentAlleIfc(rootFolderId, "Rotmappe", baseUrl);
                 
                 if (modelFiles.length === 0) {
@@ -238,7 +254,6 @@
                     return;
                 }
 
-                // Generer nedtrekksmeny basert på de unike mappene vi fant
                 const uniqueFolders = [...new Set(modelFiles.map(f => f.folderName))].sort();
                 const folderSelect = document.getElementById('folderSelect');
                 folderSelect.innerHTML = `<option value="all">Alle mapper</option>` + uniqueFolders.map(f => `<option value="${f}">${f}</option>`).join('');
