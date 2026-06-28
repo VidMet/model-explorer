@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.10</title>
+    <title>DocLib v1.11</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -80,7 +80,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.10</b>
+            <b>DocLib v1.11</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -184,11 +184,11 @@
                 
                 const projData = await projRes.json();
                 
-                // Helgardering for å fange opp mappe-IDen uansett API-versjonsformat
-                const rootFolderId = (projData.rootFolder && projData.rootFolder.id) || projData.rootFolderId || projData.folderId;
+                // OPPDATERT: Her er fasiten direkte fra feilmeldingen din ("rootId") pluss de andre fallbackene
+                const rootFolderId = projData.rootId || (projData.rootFolder && projData.rootFolder.id) || projData.rootFolderId || projData.folderId;
                 
                 if (!rootFolderId) {
-                    throw new Error("Fant ingen rotmappe. Data returnert: " + JSON.stringify(projData).substring(0, 80));
+                    throw new Error("Fant ingen rotmappe. Data returnert: " + JSON.stringify(projData).substring(0, 150));
                 }
 
                 // 2. Hent filene direkte fra rotmappen
