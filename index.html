@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metadata Utforsker v1.00</title>
+    <title>DocLib v1.02</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -33,7 +33,6 @@
             height: 100vh;
         }
 
-        /* --- HEADER STYLING --- */
         .topbar {
             height: 92px; background: #fff; border-bottom: 1px solid var(--border);
             display: flex; align-items: center; gap: 18px; padding: 10px 18px; flex: 0 0 auto;
@@ -56,13 +55,7 @@
         .dot.warn { background: var(--warn); }
         .dot.error { background: var(--bad); }
 
-        /* --- INNHOLD STYLING --- */
-        .main-content {
-            padding: 20px;
-            flex: 1 1 auto;
-            overflow-y: auto;
-        }
-
+        .main-content { padding: 20px; flex: 1 1 auto; overflow-y: auto; }
         .toolbar { 
             display: flex; justify-content: space-between; align-items: center; 
             margin-bottom: 20px; background: #fff; padding: 15px 20px; 
@@ -87,7 +80,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>Metadata Utforsker v1.0</b>
+            <b>DocLib v1.02</b>
             <span>Norconsult Norge</span>
             <em>Utviklet av Norconsult. Kontaktperson: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -133,7 +126,6 @@
         let accessToken = null;
         let allFilesData = [];
 
-        // Hjelpefunksjon for å sette status og farge på prikken i headeren
         const setStatus = (m, c='') => { 
             document.getElementById('statusText').textContent = m; 
             let dotClass = 'dot';
@@ -150,9 +142,10 @@
 
                 if (API.ui && API.ui.setMenu) {
                     await API.ui.setMenu({
-                        title: "Metadata Utforsker",
+                        title: "DocLib",
                         command: "open_explorer",
-                        icon: "https://vidmet.github.io/model-explorer/google-docs.png",
+                        // OPPDATERT: Her er den nye lenken som peker til DocLib-repoet ditt
+                        icon: "https://vidmet.github.io/DocLib/google-docs.png",
                         subMenus: [] 
                     });
                 }
@@ -184,22 +177,20 @@
             try {
                 setStatus("Søker opp riktig API-region for prosjektet...", "warn");
 
-                // 1. Spør Trimble om hvilke server-URLer som gjelder akkurat nå
-                const regionRes = await fetch("https://api.connect.trimble.com/tc/v1/regions", {
+                const regionRes = await fetch("https://app.connect.trimble.com/tc/api/2.0/regions", {
                     headers: { 'Authorization': `Bearer ${accessToken}` }
                 });
                 
                 if (!regionRes.ok) throw new Error("Kunne ikke slå opp regioner");
                 const regions = await regionRes.json();
                 
-                // 2. Sammenlign med prosjektets region (f.eks "europe") for å få riktig baseUrl
                 const myRegion = regions.find(r => r.id === currentProject.region);
-                const baseUrl = myRegion ? myRegion.origin : "https://api.connect.trimble.com";
+                const baseUrl = myRegion ? myRegion.origin : "https://app21.connect.trimble.com";
 
                 setStatus(`Kobler til server: ${myRegion ? myRegion.name : baseUrl}...`, "warn");
 
-                // 3. Nå er vi 100% sikre på at vi treffer riktig server
-                const url = `${baseUrl}/tc/v1/projects/${projectId}/items`;
+                const rootFolderId = currentProject.rootFolderId || currentProject.id;
+                const url = `${baseUrl}/tc/api/2.0/folders/${rootFolderId}/items`;
                 
                 const response = await fetch(url, {
                     method: 'GET',
@@ -211,8 +202,10 @@
                 
                 if (!response.ok) throw new Error("API feilet med status: " + response.status);
 
-                const files = await response.json();
-                const modelFiles = files.filter(file => file.type === 'FILE' && file.name.toLowerCase().endsWith('.ifc'));
+                const filesData = await response.json();
+                
+                const itemsArray = Array.isArray(filesData) ? filesData : (filesData.items || []);
+                const modelFiles = itemsArray.filter(file => file.type === 'FILE' && file.name.toLowerCase().endsWith('.ifc'));
                 
                 if (modelFiles.length === 0) {
                     document.getElementById('tableBody').innerHTML = `<tr><td colspan="9" class="loading">Ingen IFC-filer funnet i prosjektets rotmappe.</td></tr>`;
@@ -223,7 +216,7 @@
                 setStatus(`Henter metadata for ${modelFiles.length} filer...`, "warn");
 
                 allFilesData = await Promise.all(modelFiles.map(async (file) => {
-                    const metadata = await fetchFileMetadata(projectId, file.id, baseUrl);
+                    const metadata = await fetchFileMetadata(file.id, baseUrl);
                     return {
                         id: file.id,
                         name: file.name,
@@ -238,20 +231,18 @@
             } catch (error) {
                 console.error("Filhenting feilet:", error);
                 document.getElementById('loaderText').innerText = "Nettverksfeil. Se konsoll (F12) for detaljer.";
-                setStatus("Nettverksfeil mot filstrukturen", "error");
+                setStatus("Nettverksfeil", "error");
             }
         }
 
-        // Legg merke til at vi nå sender 'baseUrl' videre inn hit også
-        async function fetchFileMetadata(projectId, fileId, baseUrl) {
+        async function fetchFileMetadata(fileId, baseUrl) {
             const defaultMeta = {
                 fag: "-", mmi: "-", revisjon: "-", revisjonsdato: "-", 
                 gjelder: "-", utarbeidet: "-", kontrollert: "-", godkjent: "-"
             };
             
             try {
-                // Bruker den dynamiske serveradressen
-                const url = `${baseUrl}/tc/v1/projects/${projectId}/items/${fileId}/properties`;
+                const url = `${baseUrl}/tc/api/2.0/files/${fileId}`;
                 const response = await fetch(url, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -259,7 +250,9 @@
                 
                 if (!response.ok) return defaultMeta;
                 
-                const propsData = await response.json();
+                const fileData = await response.json();
+                
+                const propsData = fileData.customProperties || fileData.properties || {};
                 
                 return {
                     fag: extractProp(propsData, ["Underdisiplin", "Fag"]),
