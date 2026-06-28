@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.07</title>
+    <title>DocLib v1.08</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -80,7 +80,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.07</b>
+            <b>DocLib v1.08</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -140,21 +140,24 @@
                 setStatus("Kobler til Trimble Connect...", "warn");
                 API = await window.TrimbleConnectWorkspace.connect(window.parent);
 
-                // Fjernet API.ui.setMenu - den forårsaket timeouten siden manifestet allerede håndterer knappen!
-
                 setStatus("Henter prosjekt og tillatelser...", "warn");
                 currentProject = await API.project.getProject();
                 
-                // Hent autorisasjonstoken sikkert
-                try {
-                    const tokenData = await API.extension.getPermission("accesstoken");
-                    accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.accessToken || tokenData.token || "");
-                } catch (e) {
-                    const tokenData = await API.extension.requestPermission("accesstoken");
-                    accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.accessToken || tokenData.token || "");
+                // Omgår 5000ms Timeout ved å hente token direkte fra URL-en når det er mulig
+                const urlParams = new URLSearchParams(window.location.search);
+                accessToken = urlParams.get('token') || urlParams.get('accessToken') || urlParams.get('access_token');
+                
+                if (!accessToken) {
+                    // Fallback kun hvis URL mangler token
+                    try {
+                        const tokenData = await API.extension.getPermission("accesstoken");
+                        accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.accessToken || tokenData.token || "");
+                    } catch (e) {
+                        console.warn("Mindre viktig timeout-advarsel fra Trimble SDK håndtert.");
+                    }
                 }
                 
-                if (!accessToken) throw new Error("Klarte ikke hente gyldig token fra Trimble.");
+                if (!accessToken) throw new Error("Klarte ikke hente gyldig token (adgangskort) fra Trimble.");
 
                 fetchProjectFiles(currentProject.id);
 
@@ -167,16 +170,29 @@
         window.onload = initExtension;
 
         async function fetchProjectFiles(projectId) {
-            // Låser nettverkstrafikken til app21 (korrekt for europeiske prosjekter)
+            // Låser trafikken til app21 (Norconsult sine servere)
             const baseUrl = "https://app21.connect.trimble.com"; 
 
             try {
-                setStatus(`Kobler til server: ${baseUrl}...`, "warn");
+                setStatus(`Henter prosjektstruktur...`, "warn");
 
-                const rootFolderId = currentProject.rootFolderId || currentProject.id;
-                let url = `${baseUrl}/tc/api/2.0/folders/${rootFolderId}/items`;
+                // STEG 1 (Fikser 403-feilen): Vi MÅ hente prosjektet først for å finne riktig rotmappe-ID
+                const projRes = await fetch(`${baseUrl}/tc/api/2.0/projects/${projectId}`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+                });
                 
-                let response = await fetch(url, {
+                if (!projRes.ok) throw new Error("Klarte ikke slå opp prosjektdetaljer for å finne rotmappen.");
+                const projData = await projRes.json();
+                
+                // Finner den korrekte mappe-IDen
+                const rootFolderId = projData.rootFolderId;
+                if (!rootFolderId) throw new Error("Fant ingen rotmappe i dette prosjektet.");
+
+                // STEG 2: Henter filene fra den faktiske mappen
+                setStatus(`Henter filer fra prosjektet...`, "warn");
+                const url = `${baseUrl}/tc/api/2.0/folders/${rootFolderId}/items`;
+                
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
@@ -185,6 +201,7 @@
                 });
 
                 if (response.status === 401) throw new Error("401 Unauthorized - Ugyldig adgangskort til prosjektet.");
+                if (response.status === 403) throw new Error("403 Forbidden - Mangler tilgang til rotmappen.");
                 if (!response.ok) throw new Error("API feilet med status: " + response.status);
 
                 const filesData = await response.json();
