@@ -1,0 +1,30 @@
+{
+  "p7-v_f-skilt.ifc": {
+    "Fag": "Skilt og Oppmerking",
+    "MMI": "500",
+    "Revisjon": "Z06",
+    "Revisjonsdato": "27.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p7-v_f-støyskjerm.ifc": {
+    "Fag": "Akustikk",
+    "MMI": "500",
+    "Revisjon": "Z02",
+    "Revisjonsdato": "27.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p7-v_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z07",
+    "Revisjonsdato": "27.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p7-v_f-uts_veibommer.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z06",
+    "Revisjonsdato": "27.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "p7-sv_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z07",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p7-v_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z07",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p8-sv_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z06",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p8-v_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z10",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p9-sv_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z05",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p9-v_f-uts_rekkverk.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z10",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  },
+  "p9-v_f-uts_rekkverk_bru.ifc": {
+    "Fag": "Vegutstyr",
+    "MMI": "500",
+    "Revisjon": "Z06",
+    "Revisjonsdato": "26.06.2026",
+    "Revisjonen gjelder": "Som utført"
+  }
+}
