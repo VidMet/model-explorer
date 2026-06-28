@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.16</title>
+    <title>DocLib v1.19</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -81,7 +81,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.16</b>
+            <b>DocLib v1.19</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -293,7 +293,48 @@
                         const fileData = await response.json();
                         
                         // Denne henter alt Trimble Connect har mappet som Custom Properties
-                        const props = fileData.customProperties || {};
+                        
+                        let props = fileData.customProperties || {};
+
+                        // 🔽 NY DEL (IFC fallback – endrer ikke eksisterende)
+                        if (!props || Object.keys(props).length === 0) {
+
+                            try {
+                                const modelId = fileData.modelId;
+
+                                if (modelId) {
+
+                                    const propRes = await fetch(`${baseUrl}/tc/api/2.0/models/${modelId}/properties`, {
+                                        method: 'GET',
+                                        headers: {
+                                            'Authorization': `Bearer ${accessToken}`,
+                                            'Accept': 'application/json'
+                                        }
+                                    });
+
+                                    if (propRes.ok) {
+
+                                        const propData = await propRes.json();
+
+                                        console.log("IFC PROPS:", fileName, propData);
+
+                                        // bruk eksisterende extractor
+                                        props = {
+                                            "Fag": extractProp(propData, ["Fag"]),
+                                            "MMI": extractProp(propData, ["MMI"]),
+                                            "Revisjon": extractProp(propData, ["Revisjon"]),
+                                            "Revisjonsdato": extractProp(propData, ["Revisjonsdato"]),
+                                            "Beskrivelse": extractProp(propData, ["Beskrivelse","Gjelder"])
+                                        };
+                                    }
+
+                                }
+
+                            } catch (e) {
+                                console.warn("IFC metadata feilet:", fileName, e);
+                            }
+                        }
+
                         
                         console.log(`Metadata for ${fileName}:`, props);
                         
