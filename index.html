@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.14</title>
+    <title>DocLib v1.15</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -81,7 +81,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.14</b>
+            <b>DocLib v1.15</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -144,7 +144,6 @@
                 setStatus("Kobler til Trimble Connect...", "warn");
                 API = await window.TrimbleConnectWorkspace.connect(window.parent);
 
-                // --- FIKS FOR MENYKNAPP: Legger koden tilbake, men fanger opp evt. feil i det stille ---
                 if (API.ui && API.ui.setMenu) {
                     API.ui.setMenu({
                         title: "DocLib",
@@ -160,7 +159,6 @@
                         }
                     });
                 }
-                // -----------------------------------------------------------------------------------------
 
                 setStatus("Henter prosjekt og tillatelser...", "warn");
                 currentProject = await API.project.getProject();
@@ -262,7 +260,8 @@
                 setStatus(`Laster ned metadata for ${modelFiles.length} filer...`, "warn");
 
                 allFilesData = await Promise.all(modelFiles.map(async (file) => {
-                    const metadata = await fetchFileMetadata(file.id, baseUrl);
+                    // Sender med filnavnet slik at vi kan se det i konsollen
+                    const metadata = await fetchFileMetadata(file.id, file.name, baseUrl);
                     return {
                         id: file.id,
                         name: file.name,
@@ -282,7 +281,7 @@
             }
         }
 
-        async function fetchFileMetadata(fileId, baseUrl) {
+        async function fetchFileMetadata(fileId, fileName, baseUrl) {
             const defaultMeta = {
                 fag: "-", mmi: "-", revisjon: "-", revisjonsdato: "-", gjelder: "-"
             };
@@ -299,12 +298,15 @@
                 const fileData = await response.json();
                 const propsData = fileData.customProperties || fileData.properties || {};
                 
+                // SKRIVER UT TIL KONSOLLEN: Her kan vi se hva filen faktisk inneholder!
+                console.log(`Egenskaper funnet for ${fileName}:`, propsData);
+                
                 return {
-                    fag: extractProp(propsData, ["Underdisiplin", "Fag"]),
-                    mmi: extractProp(propsData, ["MMI"]),
-                    revisjon: extractProp(propsData, ["Revisjon"]),
+                    fag: extractProp(propsData, ["Underdisiplin", "Fag", "Disiplin"]),
+                    mmi: extractProp(propsData, ["MMI", "Status"]),
+                    revisjon: extractProp(propsData, ["Revisjon", "Rev"]),
                     revisjonsdato: extractProp(propsData, ["Revisjonsdato", "Dato"]),
-                    gjelder: extractProp(propsData, ["Revisjonen gjelder", "Beskrivelse"])
+                    gjelder: extractProp(propsData, ["Revisjonen gjelder", "Beskrivelse", "Gjelder"])
                 };
             } catch (e) {
                 return defaultMeta;
