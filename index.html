@@ -1,300 +1,366 @@
 <!DOCTYPE html>
 <html lang="no">
 <head>
-<meta charset="UTF-8">
-<title>DocLib IFC Metadata</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocLib v1.16</title>
+    
+    <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
-<script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap');
 
-<style>
-body { font-family: Arial; margin:0; padding:20px; }
-table { width:100%; border-collapse: collapse; }
-th,td { padding:8px; border-bottom:1px solid #ccc; }
-</style>
+        :root {
+            --bg:        #f3f4f6;      
+            --surface:   #ffffff;      
+            --border:    #d1d5db;      
+            --ink:       #111827;      
+            --muted:     #6b7280;      
+            --blue:      #1d4ed8;      
+            --ok:        #22a06b;
+            --warn:      #f79009;
+            --bad:       #d92d20;
+            --sans:      'Syne', sans-serif;
+        }
+
+        body { 
+            font-family: var(--sans), Arial, sans-serif; 
+            margin: 0; 
+            background-color: var(--bg); 
+            color: var(--ink); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
+        }
+
+        .topbar {
+            height: 92px; background: #fff; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 18px; padding: 10px 18px; flex: 0 0 auto;
+        }
+        .logo-card {
+            width: 145px; height: 68px; border: 1px solid var(--border); border-radius: 12px;
+            background: #fff; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 14px rgba(16,24,40,.08); overflow: hidden; flex-shrink: 0;
+        }
+        .logo-card img { max-width: 128px; max-height: 50px; object-fit: contain; }
+        .app-title { display: flex; flex-direction: column; line-height: 1.2; }
+        .app-title b { font-size: 18px; color: #0050b5; }
+        .app-title span { font-size: 14px; font-weight: 600; }
+        .app-title em { font-size: 12px; color: var(--muted); font-style: normal; }
+        
+        .header-right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+        .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+        .dot { width: 9px; height: 9px; border-radius: 50%; background: #98a2b3; flex-shrink: 0; }
+        .dot.live { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+        .dot.warn { background: var(--warn); }
+        .dot.error { background: var(--bad); }
+
+        .main-content { padding: 20px; flex: 1 1 auto; overflow-y: auto; }
+        .toolbar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 20px; background: #fff; padding: 15px 20px; 
+            border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+        }
+        .toolbar h3 { margin: 0; font-size: 1rem; color: var(--ink); }
+        .search-container { display: flex; gap: 12px; }
+        .search-bar { padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; font-family: var(--sans); }
+        .search-input { width: 300px; }
+        .folder-select { width: 220px; cursor: pointer; display: none; }
+        
+        table { width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; }
+        th, td { padding: 12px 15px; text-align: left; font-size: 13px; border-bottom: 1px solid #dee2e6; }
+        th { background-color: #f1f3f5; color: #495057; font-weight: 600; }
+        tr:hover { background-color: #f8f9fa; }
+        .loading { text-align: center; padding: 40px; font-style: italic; color: var(--muted); }
+    </style>
 </head>
-
 <body>
 
-<h3>IFC Metadata</h3>
+    <header class="topbar">
+        <div class="logo-card">
+            <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
+        </div>
+        <div class="app-title">
+            <b>DocLib v1.16</b>
+            <span>Norconsult Norge</span>
+            <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
+        </div>
+        <div class="header-right">
+            <div class="status">
+                <span id="statusText">Venter på API...</span>
+                <span id="statusDot" class="dot"></span>
+            </div>
+        </div>
+    </header>
 
-<div id="status">Starter...</div>
+    <div class="main-content">
+        <div class="toolbar">
+            <h3>Filer og egenskaper</h3>
+            <div class="search-container">
+                <select id="folderSelect" class="search-bar folder-select">
+                    <option value="all">Alle mapper</option>
+                </select>
+                <input type="text" id="searchInput" class="search-bar search-input" placeholder="Søk i modeller eller metadata...">
+            </div>
+        </div>
 
-<table>
-<thead>
-<tr>
-<th>Fil</th>
-<th>Mappe</th>
-<th>Fag</th>
-<th>MMI</th>
-<th>Revisjon</th>
-<th>Dato</th>
-<th>Gjelder</th>
-</tr>
-</thead>
-<tbody id="tableBody">
-<tr><td colspan="7">Laster...</td></tr>
-</tbody>
-</table>
+        <table id="metadataTable">
+            <thead>
+                <tr>
+                    <th>Filnavn</th>
+                    <th>Mappe</th>
+                    <th>Fag</th>
+                    <th>MMI</th>
+                    <th>Revisjon</th>
+                    <th>Revisjonsdato</th>
+                    <th>Revisjonen gjelder</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="7" class="loading" id="loaderText">Data lastes inn. Se status øverst til høyre.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 
-<script>
+    <script>
+        let API = null;
+        let currentProject = null;
+        let accessToken = null;
+        let allFilesData = [];
 
-// GLOBAL ERROR LOGGER
-window.onerror = function(msg, url, line, col, error) {
-    console.error("GLOBAL ERROR:", msg, error);
-};
-
-let API = null;
-let accessToken = null;
-let projectId = null;
-let allFilesData = [];
-
-const baseUrl = "https://app21.connect.trimble.com";
-
-function setStatus(msg) {
-    document.getElementById("status").innerText = msg;
-}
-
-// ✅ INIT (STABIL)
-window.onload = async function init() {
-
-    try {
-        setStatus("Kobler...");
-
-        API = await window.TrimbleConnectWorkspace.connect(window.parent);
-
-        // ✅ KRITISK: registrer extension i UI
-        try {
-            await API.ui.setMenu({
-                title: "DocLib",
-                command: "open"
-            });
-        } catch(e) { console.warn(e); }
-
-        API.ui.onCommand(cmd => {
-            if (cmd === "open") {
-                API.ui.setActiveMenuItem("open").catch(()=>{});
-            }
-        });
-
-        const project = await API.project.getProject();
-        projectId = project.id;
-
-        // ✅ token
-        try {
-            const tokenData = await API.extension.getPermission("accesstoken");
-            accessToken = typeof tokenData === 'string'
-                ? tokenData
-                : (tokenData?.accessToken || "");
-        } catch(e) {
-            console.warn("Token-feil", e);
-        }
-
-        if (!accessToken) throw new Error("Manglende token");
-
-        fetchFiles();
-
-    } catch (e) {
-        console.error(e);
-        setStatus("Init-feil");
-    }
-};
-
-
-// ✅ HENT IFC-FILER
-async function fetchFiles() {
-
-    try {
-        setStatus("Henter prosjekt...");
-
-        const res = await fetch(`${baseUrl}/tc/api/2.0/projects/${projectId}`, {
-            headers:{ Authorization:`Bearer ${accessToken}` }
-        });
-
-        const data = await res.json();
-        const rootId = data.rootId;
-
-        setStatus("Skanner mapper...");
-
-        const files = await walkFolders(rootId, "Rot");
-
-        setStatus(`Fant ${files.length} IFC filer`);
-
-        // ✅ Throttling
-        allFilesData = await mapWithLimit(files, 4, async f => {
-            const meta = await getMetadata(f.id, f.name);
-            return { ...f, ...meta };
-        });
-
-        render(allFilesData);
-
-        setStatus("Ferdig ✅");
-
-    } catch(e) {
-        console.error(e);
-        setStatus("Feil ved henting");
-    }
-}
-
-
-// ✅ REKURSIV MAPPELESING
-async function walkFolders(folderId, name) {
-
-    let result = [];
-
-    try {
-        const res = await fetch(`${baseUrl}/tc/api/2.0/folders/${folderId}/items`, {
-            headers:{ Authorization:`Bearer ${accessToken}` }
-        });
-
-        const data = await res.json();
-        const items = data.items || data;
-
-        for (const i of items) {
-
-            if (i.type === "FILE" && i.name.toLowerCase().endsWith(".ifc")) {
-                result.push({ id:i.id, name:i.name, folder:name });
-            }
-
-            if (i.type === "FOLDER") {
-                const sub = await walkFolders(i.id, i.name);
-                result = result.concat(sub);
-            }
-        }
-
-    } catch(e) {
-        console.warn("Mappefeil", e);
-    }
-
-    return result;
-}
-
-
-// ✅ IFC METADATA
-async function getMetadata(fileId, fileName) {
-
-    const empty = {
-        fag:"-",
-        mmi:"-",
-        revisjon:"-",
-        dato:"-",
-        gjelder:"-"
-    };
-
-    try {
-
-        // 1️⃣ file -> model
-        const f = await fetch(`${baseUrl}/tc/api/2.0/files/${fileId}`, {
-            headers:{ Authorization:`Bearer ${accessToken}` }
-        });
-
-        if (!f.ok) return empty;
-
-        const fileData = await f.json();
-        const modelId = fileData.modelId || fileData.id;
-
-        // 2️⃣ hent IFC props
-        const p = await fetch(`${baseUrl}/tc/api/2.0/models/${modelId}/properties`, {
-            headers:{ Authorization:`Bearer ${accessToken}` }
-        });
-
-        if (!p.ok) {
-            console.warn("Ingen props:", fileName);
-            return empty;
-        }
-
-        const props = await p.json();
-
-        console.log("PROPS:", fileName, props);
-
-        return {
-            fag: extract(props, ["Fag"]),
-            mmi: extract(props, ["MMI"]),
-            revisjon: extract(props, ["Revisjon"]),
-            dato: extract(props, ["Revisjonsdato"]),
-            gjelder: extract(props, ["Gjelder","Beskrivelse"])
+        const setStatus = (m, c='') => { 
+            document.getElementById('statusText').textContent = m; 
+            let dotClass = 'dot';
+            if (c === 'ok') dotClass = 'dot live';
+            else if (c === 'error') dotClass = 'dot error';
+            else if (c === 'warn') dotClass = 'dot warn';
+            document.getElementById('statusDot').className = dotClass; 
         };
 
-    } catch(e) {
-        console.warn("Metadata-feil", fileName, e);
-        return empty;
-    }
-}
+        async function initExtension() {
+            try {
+                setStatus("Kobler til Trimble Connect...", "warn");
+                API = await window.TrimbleConnectWorkspace.connect(window.parent);
 
+                if (API.ui && API.ui.setMenu) {
+                    API.ui.setMenu({
+                        title: "DocLib",
+                        command: "open_explorer",
+                        icon: "https://vidmet.github.io/DocLib/paper.png"
+                    }).catch(e => console.warn("Meny-oppsett ignorert (kjent timeout):", e));
+                }
 
-// ✅ PROPERTY PARSER
-function extract(data, keys) {
+                if (API.ui && API.ui.onCommand) {
+                    API.ui.onCommand((command) => {
+                        if (command === "open_explorer") {
+                            API.ui.setActiveMenuItem("open_explorer").catch(e => console.warn(e));
+                        }
+                    });
+                }
 
-    if (!data) return "-";
+                setStatus("Henter prosjekt og tillatelser...", "warn");
+                currentProject = await API.project.getProject();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                accessToken = urlParams.get('token') || urlParams.get('accessToken') || urlParams.get('access_token');
+                
+                if (!accessToken) {
+                    try {
+                        const tokenData = await API.extension.getPermission("accesstoken");
+                        accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.accessToken || tokenData.token || "");
+                    } catch (e) {
+                        console.warn("Håndterte standard API-forsinkelse.");
+                    }
+                }
+                
+                if (!accessToken) throw new Error("Klarte ikke hente gyldig token fra Trimble.");
 
-    // direkte objekt
-    for (const k of keys) {
-        if (data[k]) return data[k];
-    }
+                fetchProjectFiles(currentProject.id);
 
-    // array (vanlig IFC)
-    if (Array.isArray(data)) {
-        for (const set of data) {
-            if (!set.properties) continue;
-
-            for (const k of keys) {
-                if (set.properties[k]) return set.properties[k];
+            } catch (error) {
+                console.error("Initialiseringsfeil:", error);
+                setStatus("Feil: Kunne ikke koble til Trimble API", "error");
             }
         }
-    }
 
-    return "-";
-}
+        window.onload = initExtension;
 
+        async function hentAlleIfc(folderId, folderName, baseUrl) {
+            let funnet = [];
+            try {
+                const url = `${baseUrl}/tc/api/2.0/folders/${folderId}/items`;
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+                });
 
-// ✅ THROTTLING
-async function mapWithLimit(arr, limit, fn) {
+                if (!response.ok) return [];
 
-    const ret = [];
-    const executing = [];
+                const data = await response.json();
+                const items = Array.isArray(data) ? data : (data.items || []);
+                
+                const undermapper = [];
+                for (const item of items) {
+                    if (item.type === 'FILE' && item.name.toLowerCase().endsWith('.ifc')) {
+                        item.folderName = folderName; 
+                        funnet.push(item);
+                    } else if (item.type === 'FOLDER') {
+                        undermapper.push(item);
+                    }
+                }
+                
+                if (undermapper.length > 0) {
+                    const resultatArray = await Promise.all(undermapper.map(mappe => hentAlleIfc(mappe.id, mappe.name, baseUrl)));
+                    for (const res of resultatArray) {
+                        funnet = funnet.concat(res);
+                    }
+                }
+                
+            } catch (e) {
+                console.warn("Klarte ikke å lese mappeinnholdet:", e);
+            }
+            return funnet;
+        }
 
-    for (const item of arr) {
+        async function fetchProjectFiles(projectId) {
+            const baseUrl = "https://app21.connect.trimble.com"; 
 
-        const p = Promise.resolve().then(() => fn(item));
-        ret.push(p);
+            try {
+                setStatus(`Finner rotmappen for prosjektet...`, "warn");
+                
+                const projRes = await fetch(`${baseUrl}/tc/api/2.0/projects/${projectId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+                });
 
-        if (limit <= arr.length) {
-            const e = p.then(() => executing.splice(executing.indexOf(e),1));
-            executing.push(e);
+                if (!projRes.ok) throw new Error("Klarte ikke slå opp prosjektdetaljer.");
+                
+                const projData = await projRes.json();
+                const rootFolderId = projData.rootId || (projData.rootFolder && projData.rootFolder.id) || projData.rootFolderId || projData.folderId;
+                
+                if (!rootFolderId) throw new Error("Fant ingen rotmappe.");
 
-            if (executing.length >= limit) {
-                await Promise.race(executing);
+                setStatus(`Skanner hele prosjektet for IFC-filer...`, "warn");
+                
+                const modelFiles = await hentAlleIfc(rootFolderId, "Rotmappe", baseUrl);
+                
+                if (modelFiles.length === 0) {
+                    document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="loading">Ingen IFC-filer funnet i prosjektet.</td></tr>`;
+                    setStatus("Ferdig. Ingen IFC-filer funnet.", "ok");
+                    return;
+                }
+
+                const uniqueFolders = [...new Set(modelFiles.map(f => f.folderName))].sort();
+                const folderSelect = document.getElementById('folderSelect');
+                folderSelect.innerHTML = `<option value="all">Alle mapper</option>` + uniqueFolders.map(f => `<option value="${f}">${f}</option>`).join('');
+                folderSelect.style.display = 'block';
+
+                setStatus(`Laster ned metadata for ${modelFiles.length} filer...`, "warn");
+
+                allFilesData = await Promise.all(modelFiles.map(async (file) => {
+                    // Sender med filnavnet slik at vi kan se det i konsollen
+                    const metadata = await fetchFileMetadata(file.id, file.name, baseUrl);
+                    return {
+                        id: file.id,
+                        name: file.name,
+                        folderName: file.folderName,
+                        ...metadata
+                    };
+                }));
+                
+                renderTable(allFilesData);
+                setupSearch();
+                setStatus(`Data lastet inn for ${modelFiles.length} filer!`, "ok");
+                
+            } catch (error) {
+                console.error("Filhenting feilet:", error);
+                document.getElementById('loaderText').innerHTML = `Nettverksfeil: ${error.message}`;
+                setStatus("Nettverksfeil", "error");
             }
         }
-    }
 
-    return Promise.all(ret);
-}
+        async function fetchFileMetadata(fileId, fileName, baseUrl) {
+                    const defaultMeta = { fag: "-", mmi: "-", revisjon: "-", revisjonsdato: "-", gjelder: "-" };
+                    try {
+                        const url = `${baseUrl}/tc/api/2.0/files/${fileId}`;
+                        const response = await fetch(url, {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${accessToken}` }
+                        });
+                        if (!response.ok) return defaultMeta;
+                        const fileData = await response.json();
+                        
+                        // Denne henter alt Trimble Connect har mappet som Custom Properties
+                        const props = fileData.customProperties || {};
+                        
+                        console.log(`Metadata for ${fileName}:`, props);
+                        
+                        return {
+                            fag: props["Fag"] || "-",
+                            mmi: props["MMI"] || "-",
+                            revisjon: props["Revisjon"] || "-",
+                            revisjonsdato: props["Revisjonsdato"] || "-",
+                            gjelder: props["Beskrivelse"] || props["Gjelder"] || "-"
+                        };
+                    } catch (e) { return defaultMeta; }
+                }
 
+        function extractProp(data, possibleKeys) {
+            let value = "-";
+            possibleKeys.forEach(key => {
+                if (data[key]) value = data[key];
+                if (Array.isArray(data)) {
+                    data.forEach(propSet => {
+                        if (propSet.properties && propSet.properties[key]) {
+                            value = propSet.properties[key];
+                        }
+                    });
+                }
+            });
+            return value;
+        }
 
-// ✅ RENDER
-function render(data) {
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="loading">Søket ga ingen treff.</td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = data.map(fil => `
+                <tr>
+                    <td style="font-weight: 600;">${fil.name}</td>
+                    <td style="color: var(--muted); font-size: 12px;">${fil.folderName}</td>
+                    <td>${fil.fag}</td>
+                    <td>${fil.mmi}</td>
+                    <td>${fil.revisjon}</td>
+                    <td>${fil.revisjonsdato}</td>
+                    <td>${fil.gjelder}</td>
+                </tr>
+            `).join('');
+        }
 
-    const tbody = document.getElementById("tableBody");
-
-    if (!data.length) {
-        tbody.innerHTML = "<tr><td colspan='7'>Ingen data</td></tr>";
-        return;
-    }
-
-    tbody.innerHTML = data.map(f => `
-        <tr>
-        <td>${f.name}</td>
-        <td>${f.folder}</td>
-        <td>${f.fag}</td>
-        <td>${f.mmi}</td>
-        <td>${f.revisjon}</td>
-        <td>${f.dato}</td>
-        <td>${f.gjelder}</td>
-        </tr>
-    `).join("");
-}
-
-</script>
-
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const folderSelect = document.getElementById('folderSelect');
+            
+            const applyFilters = () => {
+                const term = searchInput.value.toLowerCase();
+                const selectedFolder = folderSelect.value;
+                
+                const filtered = allFilesData.filter(fil => {
+                    const matchSearch = Object.values(fil).some(val => String(val).toLowerCase().includes(term));
+                    const matchFolder = selectedFolder === 'all' || fil.folderName === selectedFolder;
+                    return matchSearch && matchFolder;
+                });
+                renderTable(filtered);
+            };
+            
+            searchInput.addEventListener('input', applyFilters);
+            folderSelect.addEventListener('change', applyFilters);
+        }
+    </script>
 </body>
 </html>
