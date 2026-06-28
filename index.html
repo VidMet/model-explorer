@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocLib v1.04</title>
+    <title>DocLib v1.05</title>
     
     <script src="https://components.connect.trimble.com/trimble-connect-workspace-api/index.js"></script>
 
@@ -80,7 +80,7 @@
             <img src="norconsult-logo-black.png" alt="Norconsult" onerror="this.style.display='none'">
         </div>
         <div class="app-title">
-            <b>DocLib v1.04</b>
+            <b>DocLib v1.05</b>
             <span>Norconsult Norge</span>
             <em>Developed by Norconsult Norge AS, AI-assisted development. Contact: Vidar.Metveit@norconsult.com</em>
         </div>
@@ -144,7 +144,6 @@
                     await API.ui.setMenu({
                         title: "DocLib",
                         command: "open_explorer",
-                        // OPPDATERT: Her er ikonet rettet til paper.png!
                         icon: "https://vidmet.github.io/DocLib/paper.png",
                         subMenus: [] 
                     });
@@ -158,11 +157,17 @@
                     });
                 }
 
-                setStatus("Henter prosjektinformasjon...", "warn");
+                setStatus("Henter prosjekt og tillatelser...", "warn");
                 currentProject = await API.project.getProject();
-                const tokenData = await API.extension.requestPermission("accesstoken");
-                accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.token || tokenData);
                 
+                // FIKS: Riktig metode for å hente token, med sikring
+                const tokenData = await API.extension.getPermission("accesstoken");
+                accessToken = typeof tokenData === 'string' ? tokenData : (tokenData.accessToken || tokenData.token || "");
+                
+                if (!accessToken) {
+                    throw new Error("Klarte ikke hente gyldig token (adgangskort) fra Trimble.");
+                }
+
                 fetchProjectFiles(currentProject.id);
 
             } catch (error) {
@@ -174,20 +179,27 @@
         window.onload = initExtension;
 
         async function fetchProjectFiles(projectId) {
+            let baseUrl = "https://app21.connect.trimble.com"; // Standard fallback til Europeisk server
+
             try {
                 setStatus("Søker opp riktig API-region for prosjektet...", "warn");
-
                 const regionRes = await fetch("https://app.connect.trimble.com/tc/api/2.0/regions", {
                     headers: { 'Authorization': `Bearer ${accessToken}` }
                 });
                 
-                if (!regionRes.ok) throw new Error("Kunne ikke slå opp regioner");
-                const regions = await regionRes.json();
-                
-                const myRegion = regions.find(r => r.id === currentProject.region);
-                const baseUrl = myRegion ? myRegion.origin : "https://app21.connect.trimble.com";
+                if (regionRes.ok) {
+                    const regions = await regionRes.json();
+                    const myRegion = regions.find(r => r.id === currentProject.region);
+                    if (myRegion) baseUrl = myRegion.origin;
+                } else {
+                    console.warn("Region-oppslag feilet. Faller tilbake på standard server (app21).");
+                }
+            } catch (e) {
+                console.warn("Nettverksfeil ved region-oppslag. Bruker app21.", e);
+            }
 
-                setStatus(`Kobler til server: ${myRegion ? myRegion.name : baseUrl}...`, "warn");
+            try {
+                setStatus(`Kobler til server: ${baseUrl}...`, "warn");
 
                 const rootFolderId = currentProject.rootFolderId || currentProject.id;
                 const url = `${baseUrl}/tc/api/2.0/folders/${rootFolderId}/items`;
@@ -200,7 +212,12 @@
                     }
                 });
                 
-                if (!response.ok) throw new Error("API feilet med status: " + response.status);
+                if (response.status === 401) {
+                    throw new Error("401 Unauthorized - Ugyldig adgangskort til prosjektet.");
+                }
+                if (!response.ok) {
+                    throw new Error("API feilet med status: " + response.status);
+                }
 
                 const filesData = await response.json();
                 
@@ -230,7 +247,7 @@
                 
             } catch (error) {
                 console.error("Filhenting feilet:", error);
-                document.getElementById('loaderText').innerText = "Nettverksfeil. Se konsoll (F12) for detaljer.";
+                document.getElementById('loaderText').innerHTML = `Nettverksfeil: ${error.message}<br><br>Se konsoll (F12) for detaljer.`;
                 setStatus("Nettverksfeil", "error");
             }
         }
@@ -251,7 +268,6 @@
                 if (!response.ok) return defaultMeta;
                 
                 const fileData = await response.json();
-                
                 const propsData = fileData.customProperties || fileData.properties || {};
                 
                 return {
