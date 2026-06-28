@@ -1,7 +1,7 @@
 {
   "title": "Dokumentutforsker med Metadata",
   "icon": "https://vidmet.github.io/DocLib/google-docs.png",
-  "url": "https://vidmet.github.io/DocLib/index.html?v=99",
+  "url": "https://vidmet.github.io/DocLib/index.html",
   "description": "Skreddersydd filutforsker med kolonner for MMI, Revisjon og godkjenningsstatus.",
   "enabled": true
 }
